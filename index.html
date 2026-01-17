@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Modelo - Three.js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.156.1/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.156.1/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    
+      #info {
+        position: fixed;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        color: white;
+        background: rgba(0,0,0,0.7);
+        padding: 15px 22px;
+        border-radius: 8px;
+        z-index: 100;
+        max-width: 350px;
+        font-size: 15px;
+        line-height: 1.5;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      #info.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+  </style>
+</head>
+<body>
+  <div id="info">Inicializando Three.js...</div>
+    <button id="toggleBg" style="position:absolute;top:10px;left:10px;z-index:101;padding:8px 10px;border-radius:8px;border:none;background:#eee;color:#222;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+      <img id="toggleBgIcon" src="brightness.png" alt="Alternar tema" style="width:22px;height:22px;display:block;" />
+    </button>
+  
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const infoDiv = document.getElementById('info');
+    const toggleBgBtn = document.getElementById('toggleBg');
+
+    // Criar cena
+    const LIGHT_BG = 0x7a8a9a; // Azul acinzentado
+    const DARK_BG = 0x22232a; // Cinza escuro
+    let isDark = true;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(DARK_BG);
+    
+    // Câmera
+    const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(4, 3, 16); // Posição angular e mais afastada
+    
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.appendChild(renderer.domElement);
+    // ...
+    
+    // Controles OrbitControls para rotacionar com mouse
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 500; // Permitir afastar muito sem sumir
+    controls.target.set(0, 0, 0); // Olhar para o centro
+    controls.update(); // Aplicar mudanças
+    // ...
+    
+    // Sistema de iluminação estilo Sketchfab
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xbbbbbb, 0.8);
+    hemisphereLight.position.set(0, 50, 0);
+    scene.add(hemisphereLight);
+    
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(5, 10, 7);
+    keyLight.castShadow = false; // Sombra desativada
+    scene.add(keyLight);
+    
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    fillLight.position.set(-5, 5, -5);
+    scene.add(fillLight);
+    
+    const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    backLight.position.set(0, 5, -10);
+    scene.add(backLight);
+    
+    const pointLight1 = new THREE.PointLight(0xffffff, 0.6, 50);
+    pointLight1.position.set(10, 10, 10);
+    scene.add(pointLight1);
+    
+    const pointLight2 = new THREE.PointLight(0xffffff, 0.6, 50);
+    pointLight2.position.set(-10, 10, -10);
+    scene.add(pointLight2);
+    
+    // ...
+    
+    // Plano removido - sem base
+    
+    // Variável para o modelo
+    let model = null;
+    
+    // Carregar modelo GLB
+    const loader = new GLTFLoader();
+    infoDiv.innerHTML = 'Carregando modelo...';
+    
+    loader.load(
+      'model7.glb',
+      function(gltf) {
+        model = gltf.scene;
+        // Habilitar sombras
+        model.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = false;
+            child.receiveShadow = false;
+          }
+        });
+        // Centralizar modelo
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        // Ajustar escala
+        model.scale.set(1, 1, 1);
+        scene.add(model);
+          infoDiv.innerHTML = 'Arraste para mover.';
+          infoDiv.classList.remove('hidden');
+          setTimeout(() => { infoDiv.classList.add('hidden'); }, 2500);
+      },
+      function(progress) {
+        const percent = progress.total > 0 ? Math.round((progress.loaded / progress.total) * 100) : 0;
+        if (progress.total > 0) {
+          infoDiv.innerHTML = `Carregando modelo: ${percent}%`;
+        } else {
+          infoDiv.innerHTML = 'Carregando modelo...';
+        }
+      },
+      function(error) {
+        infoDiv.innerHTML = `❌ ERRO ao carregar model7.glb<br>${error.message}<br><br>Verifique o console (F12)`;
+      }
+    );
+    
+    // Loop de animação
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Atualizar OrbitControls
+      controls.update();
+      
+      renderer.render(scene, camera);
+    }
+    
+    // Redimensionamento
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    
+    animate();
+    // ...
+
+    // Botão já está no HTML, mas vamos garantir que o texto e cor inicial estejam corretos
+    // Ajustar cor inicial do botão
+    toggleBgBtn.style.background = '#eee';
+    toggleBgBtn.style.color = '#222';
+    const toggleBgIcon = document.getElementById('toggleBgIcon');
+    // Branco no fundo claro, preto no fundo escuro
+    toggleBgIcon.style.filter = 'invert(1)';
+
+    // Alternar fundo
+    toggleBgBtn.addEventListener('click', () => {
+      isDark = !isDark;
+      scene.background.set(isDark ? DARK_BG : LIGHT_BG);
+      toggleBgBtn.style.background = isDark ? '#eee' : '#222';
+      toggleBgBtn.style.color = isDark ? '#222' : '#fff';
+      // Branco no fundo claro, preto no fundo escuro
+      toggleBgIcon.style.filter = isDark ? 'invert(1)' : 'invert(0)';
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
